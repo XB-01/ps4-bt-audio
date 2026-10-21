@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bluetooth Audio</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#10151e;color:#f2f6fc;font:18px Arial,sans-serif}main{max-width:720px;margin:0 auto;padding:38px 22px}small{color:#aab8cc;font-size:14px}h1{font-size:38px;margin:12px 0 8px}p{line-height:1.5;color:#b9c7da}.card{background:#1b2533;border:1px solid #334257;border-radius:18px;padding:24px;margin:22px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.pill{border-radius:30px;background:#334257;padding:8px 14px;font-size:15px}.live{background:#154d40;color:#9af0cd}.warn{background:#5a4513;color:#ffd29a}.bad{background:#5a1f26;color:#ffb3bb}button{font:inherit;border:1px solid #54687f;border-radius:10px;padding:15px 20px;background:#29384c;color:white;cursor:pointer;margin:6px 6px 6px 0}button.primary{background:#85e4c0;color:#0b3025;border-color:#85e4c0;font-weight:bold}button:focus{outline:4px solid #fff;outline-offset:3px}button:disabled{opacity:.5;cursor:wait}.quiet{background:transparent;font-size:15px;padding:10px 14px}#notice{min-height:28px;color:#ffd29a}strong{font-size:22px}.meter{height:7px;background:#334257;border-radius:5px;margin:22px 0 10px;overflow:hidden}.meter i{display:block;height:100%;width:0;background:#85e4c0;transition:width .3s}footer{margin-top:30px;color:#8d9db3;font-size:14px;line-height:1.7}</style></head>
+<body><main><small>PLAYSTATION 4 · BLUETOOTH AUDIO</small><h1>Bluetooth Audio</h1><p>Your game, in your earbuds.</p><div id="notice" role="status" aria-live="polite"></div>
+<section class="card"><div class="row"><strong>Choose headphones</strong><button onclick="action('scan')" id="scan">Scan nearby</button></div><p>Put your headphones in pairing mode, scan, then select them below.</p><select id="devices" aria-label="Headphones" style="width:100%;padding:14px;background:#10151e;color:#fff;border:1px solid #54687f;font:inherit;border-radius:8px"><option value="">No headphones found</option></select><button class="primary" onclick="connectSelected()">Connect selected headphones</button><p id="compat" style="font-size:14px">Bluetooth Classic audio devices. Compatibility varies by model.</p><div id="pair-pin" style="display:none"><label for="pin">Pairing PIN</label> <input id="pin" maxlength="16" inputmode="numeric" value="0000" style="font:inherit;width:140px"><button onclick="sendPin()">Submit PIN</button></div></section><section class="card"><div class="row"><strong id="selected-name">Headphones</strong><span class="pill" id="state">Connecting to PS4…</span></div><p id="message">Reading audio status.</p><div class="meter"><i id="level"></i></div><small id="signal">Waiting for audio</small><div style="margin-top:18px"><button class="primary" onclick="action('connect')">Connect earbuds</button><button onclick="action('stop')">Stop audio</button><button onclick="action('test')" title="Play a short test tone in the headphones">Test sound</button></div></section>
+<section class="card"><div class="row"><strong>Headphone volume</strong><output id="volume-label">40%</output></div><input id="volume" aria-label="Headphone volume" type="range" min="0" max="100" step="5" value="40" style="width:100%;margin:24px 0" oninput="document.getElementById('volume-label').textContent=this.value+'%'" onchange="action('volume/'+this.value)"><small>0% mutes the headphones. TV volume is unchanged.</small></section>
+<section class="card"><div class="row"><div><strong>TV sound</strong><p id="tv" style="margin-bottom:4px">Reading preference…</p></div><button id="toggle" onclick="toggleTV()" aria-pressed="false">Toggle TV sound</button></div><small>TV sound returns automatically when earbud audio stops.</small></section>
+<p>Open the earbud case and keep the earbuds nearby. If they are connected to your phone, disconnect them there first.</p>
+<button class="quiet" onclick="action('quit')">Shut down Bluetooth Audio</button><footer>Runs on your PS4. You can close this page while playing.<br>After restarting the PS4, run your usual jailbreak. Bluetooth Audio can then start through GoldHEN AutoRun.<br>Bluetooth Audio 2.5 · PS4 13.52</footer></main>
+<script>
+var latest=null,busy=false,exited=false,deviceKey="";
+/* link: 0 idle, 1 connecting, 2 playing, 3 lost (reconnecting), 4 failed (retrying), 5 searching */
+var LINK=['Not connected','Connecting','Playing','Connection lost','Can’t connect','Searching'],LCLS=['','warn','live','bad','bad','warn'];
+function $(id){return document.getElementById(id);}
+function request(method,path,done){var x=new XMLHttpRequest();x.open(method,path,true);x.timeout=3000;if(method==='POST')x.setRequestHeader('X-BTA-Control','1');x.onreadystatechange=function(){if(x.readyState===4){if(x.status===200){try{done(null,JSON.parse(x.responseText));}catch(e){done('Invalid response');}}else done('Cannot reach Bluetooth Audio');}};x.ontimeout=function(){done('PS4 is not responding');};x.send(null);}
+function linkOf(s){return typeof s.link==='number'?s.link:(s.streaming?2:(s.wanted?1:0));}
+function linkText(s,l){var t=LINK[l]||'Unknown';if((l===3||l===4)&&s.retry_ms>0)t+=' · retrying in '+Math.ceil(s.retry_ms/1000)+'s';if((l===1||l===3||l===4)&&s.attempts>1)t+=' · attempt '+s.attempts;return t;}
+function refresh(){if(exited||busy)return;request('GET','/api/status',function(err,s){
+ if(err){$('state').textContent='Offline';$('state').className='pill bad';$('notice').textContent='Run Bluetooth Audio from GoldHEN or Payload Guest, then reload this page.';return;}
+ latest=s;var l=linkOf(s);
+ if(document.activeElement!==$('volume')){$('volume').value=s.volume;$('volume-label').textContent=s.volume+'%';}
+ $('selected-name').textContent=s.name||'Headphones';
+ $('scan').textContent=s.scanning?'Scanning…':'Scan nearby';
+ $('pair-pin').style.display=s.pin_pending?'block':'none';
+ var key=JSON.stringify(s.devices)+s.selected;
+ if(key!==deviceKey){deviceKey=key;var sel=$('devices');while(sel.firstChild)sel.removeChild(sel.firstChild);
+  for(var i=0;i<s.devices.length;i++){var d=s.devices[i],o=document.createElement('option');o.value=d.address;o.textContent=(d.name||'Unnamed headphones')+' · '+d.address;if(d.address===s.selected)o.selected=true;sel.appendChild(o);}
+  if(!s.devices.length){var o2=document.createElement('option');o2.value='';o2.textContent='No headphones found — scan in pairing mode';sel.appendChild(o2);}}
+ $('notice').textContent=l===3?'Connection lost. TV sound is back on; reconnecting automatically.':'';
+ $('state').textContent=linkText(s,l);$('state').className='pill '+LCLS[l];
+ $('message').textContent=s.message;
+ $('tv').textContent=s.streaming?(s.hdmi_muted?'Muted · earbuds only':'On · TV and earbuds'):(s.tv_enabled?'On · also plays with earbuds':'On · will mute when earbuds connect');
+ $('toggle').textContent=s.tv_enabled?'Mute TV with earbuds':'Keep TV sound on';$('toggle').setAttribute('aria-pressed',s.tv_enabled?'true':'false');
+ var lv=typeof s.meter==='number'?s.meter:Math.min(100,s.level*100/32767);$('level').style.width=lv+'%';
+ $('signal').textContent=l===2?(s.quiet_ms>3000?'Connected, but the PS4 is not sending sound yet':(lv>0?'Game audio is reaching the earbuds':'Connected · waiting for game sound')):(l===0?'Ready when you are':'');
+});}
+function action(name){if(busy||exited)return;busy=true;request('POST','/api/'+name,function(err,s){busy=false;if(err){$('notice').textContent=err;return;}if(name==='quit'){exited=true;$('state').textContent='Offline';$('notice').textContent='Bluetooth Audio stopped. TV sound has been restored. Launch the payload to use it again.';return;}refresh();});}
+function connectSelected(){var v=$('devices').value;if(v)action('select/'+v);}
+function sendPin(){var p=$('pin').value;if(/^[0-9]{1,16}$/.test(p))action('pin/'+p);}
+function toggleTV(){if(latest)action(latest.tv_enabled?'tv-off':'tv-on');}
+refresh();setInterval(refresh,1200);
+</script></body></html>
