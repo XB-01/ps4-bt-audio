@@ -50,7 +50,9 @@ enabled (port 2121) so you can copy files. Use either option below, or both.
 ### Option A: home-screen app (PKG)
 
 `dist/Bluetooth-Audio-2.5.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
-home screen. It bundles the payload and can start it for you.
+home screen. The app is only a control screen: it does **not** start the audio service. The
+service is the payload from Option B, so do Option B as well (send it once, or install it as an
+AutoRun payload so it starts after every jailbreak).
 
 1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.5.pkg`** on the PS4 (create the
    `pkg` folder if it doesn't exist).
@@ -58,8 +60,8 @@ home screen. It bundles the payload and can start it for you.
    run **Package Installer** and install it.
 3. Open **Bluetooth Audio** from the home screen. Triangle scans, the d-pad selects, X
    connects, Square toggles TV sound, Circle closes the app. The audio service keeps running.
-4. If the service isn't running, enable GoldHEN's **PayLoader/BinLoader server (port 9090)**;
-   the app launches its bundled payload through it.
+4. If the app says "The audio service isn't running", start the payload with Option B below.
+   (GoldHEN's BinLoader, port 9090, must be enabled for that.)
 
 ### Option B: payload only (no app)
 
