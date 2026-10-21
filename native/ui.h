@@ -204,7 +204,7 @@ static void draw(int pinmode,const char*pin,int digit){
  const char*msg=state.message;char full[TBUF];
  int has_banner=1;uint32_t bc=AMBER;int spin=0;const char*btext=0;
  if(notice[0]&&g_now<notice_until){bc=AMBER;btext=notice;}
- else if(l==UI_OFFLINE){bc=RED;btext="The audio service isn't running. It starts with the console - restart the PS4 if this stays.";}
+ else if(l==UI_OFFLINE){bc=RED;btext="The audio service isn't running. Press X to start it, or jailbreak again with GoldHEN's BinLoader enabled.";}
  else if(l==BT_LINK_LOST||l==BT_LINK_FAILED){bc=RED;
   if(retry>0)snprintf(full,sizeof(full),"%s Next try in %ds.",msg,secs(retry));else snprintf(full,sizeof(full),"%s",msg);btext=full;}
  else if(l==BT_LINK_CONNECTING){bc=AMBER;spin=1;btext=msg;}

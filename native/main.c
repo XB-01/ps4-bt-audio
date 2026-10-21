@@ -89,9 +89,27 @@ static int refresh(void){
  online=1;return 0;
 }
 static void set_notice(const char*s){snprintf(notice,sizeof(notice),"%s",s);notice_until=g_now+6000000;}
-/* Thin client: the audio service auto-starts at boot (GoldHEN AutoRun). We never
- * inject payloads or touch /data here. If offline, the screen says so. */
+/* The audio service normally starts at boot (GoldHEN AutoRun). If it is not running
+ * when the app opens, send the bundled payload to GoldHEN's local BinLoader (port 9090)
+ * once. The payload's launcher refuses to start twice, and we only try while port 8097
+ * is not answering. The payload goes out on a single connection: never probe 9090. */
 static void service_check(void){refresh();}
+static int launch_attempted;
+static void start_service(void){
+ if(online||launch_attempted)return;launch_attempted=1;
+ static char payload[131072];
+ int f=sceKernelOpen("/app0/assets/BTA-Audio.bin",0,0);
+ if(f<0){logline("start: bundled payload not found");return;}
+ size_t used=0;
+ while(used<sizeof(payload)){long n=sceKernelRead(f,payload+used,sizeof(payload)-used);if(n<=0)break;used+=(size_t)n;}
+ sceKernelClose(f);
+ if(used<1024||used>=sizeof(payload)){logline("start: bundled payload size invalid");return;}
+ int fd=local_socket(9090);
+ if(fd<0){logline("start: BinLoader (9090) not reachable; enable it in GoldHEN and jailbreak again");return;}
+ int rc=write_all(fd,payload,used);close(fd);
+ logline(rc?"start: send failed":"start: payload sent to BinLoader");
+ if(!rc)set_notice("Starting audio service...");
+}
 static void action(const char*path){
  char body[160];int code=http("POST",path,body,sizeof(body));
  if(code==200)notice[0]=0;
@@ -104,7 +122,7 @@ static void volume_change(int amount){
  char path[40];snprintf(path,sizeof(path),"/api/volume/%d",value);action(path);
 }
 static void activate(void){
- if(!online){service_check();return;}
+ if(!online){launch_attempted=0;service_check();start_service();return;}
  if(state.count<=0||focus<0||focus>=state.count)return;
  const struct bt_device*d=&state.devices[focus];int l=ui_link();
  if(d->address==state.selected&&l!=BT_LINK_IDLE){action("/api/stop");return;}
@@ -123,7 +141,7 @@ static void snapshot(void){
  sceKernelClose(fd);logline("snapshot: written");
 }
 int main(void){
- sceKernelMkdir("/data/bta_audio",0755);logline("Bluetooth Audio 2.5 native app starting");
+ sceKernelMkdir("/data/bta_audio",0777);sceKernelChmod("/data/bta_audio",0777);logline("Bluetooth Audio 2.6 native app starting");
  int video=sceVideoOutOpen(0xff,0,0,0);if(video<0){logline("VideoOutOpen failed");return 1;}
  off_t memory;size_t size=8*1024*1024;void*base=0;
  if(sceKernelAllocateDirectMemory(0,sceKernelGetDirectMemorySize(),size,0x200000,3,&memory)<0||sceKernelMapDirectMemory(&base,size,0x33,0,memory,0x200000)<0){logline("Video memory failed");return 2;}
@@ -135,7 +153,7 @@ int main(void){
  int user_rc=sceUserServiceInitialize(&userparams);int pad_rc=scePadInit();
  char diag[128];snprintf(diag,sizeof(diag),"User init=0x%x Pad init=0x%x",user_rc,pad_rc);logline(diag);
  sceSystemServiceHideSplashScreen();
- logline("Checking audio service");service_check();
+ logline("Checking audio service");service_check();start_service();
  logline("Starting display loop");
  focus=0;for(int i=0;i<state.count;i++)if(state.devices[i].address==state.selected)focus=i;
  unsigned previous=0;int buffer=0,armed=0;long flip=0;uint64_t poll=0,repeat=0,first_draw=0,snap_cd=0;int pinmode=0,pinignore=0,digit=0,auto_snapped=0;char pin[5]="0000";

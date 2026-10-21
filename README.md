@@ -34,8 +34,8 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 | Path | Contents |
 |---|---|
-| `dist/Bluetooth-Audio-2.5.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
-| `payload/BTA-Audio-2.5-nokeepalive.bin` | Prebuilt flat payload for GoldHEN (sha256 `b55c7fe3301fcef7a404c06a92c1857d8dfce3d2479ba838f89dc4bf82ac75fa`) |
+| `dist/Bluetooth-Audio-2.6.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
+| `payload/BTA-Audio-2.5-nokeepalive.bin` | Prebuilt flat payload for GoldHEN (sha256 `7e17af1de4186825902ad7ad1544efabae4a3fa9d70afb867c82338891ee709b`) |
 | `app/` | Payload source: launcher, worker (A2DP bridge and web UI), device cache |
 | `native/` | Home-screen app source (OpenOrbis) and asset generator |
 | `probe/bt_accept_patch.c` | In-RAM Bluetooth acceptance patch |
@@ -49,19 +49,23 @@ enabled (port 2121) so you can copy files. Use either option below, or both.
 
 ### Option A: home-screen app (PKG)
 
-`dist/Bluetooth-Audio-2.5.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
-home screen. The app is only a control screen: it does **not** start the audio service. The
-service is the payload from Option B, so do Option B as well (send it once, or install it as an
-AutoRun payload so it starts after every jailbreak).
+`dist/Bluetooth-Audio-2.6.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
+home screen. It bundles the audio payload: when you open the app and the service isn't
+running, it sends the payload to GoldHEN's BinLoader (port 9090) for you. For the service to
+also start after every jailbreak without opening the app, add the AutoRun entry from Option B.
 
-1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.5.pkg`** on the PS4 (create the
+1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.6.pkg`** on the PS4 (create the
    `pkg` folder if it doesn't exist).
 2. In GoldHEN's settings menu, open Debug Settings, set the package source to **HDD**, then
-   run **Package Installer** and install it.
-3. Open **Bluetooth Audio** from the home screen. Triangle scans, the d-pad selects, X
-   connects, Square toggles TV sound, Circle closes the app. The audio service keeps running.
-4. If the app says "The audio service isn't running", start the payload with Option B below.
-   (GoldHEN's BinLoader, port 9090, must be enabled for that.)
+   run **Package Installer** and install it. If an older version is installed, delete it from
+   the home screen first (Options, Delete).
+3. Make sure GoldHEN's **BinLoader (port 9090)** is enabled. It accepts one payload per
+   jailbreak (any connection uses it up), so either let the app start the service **or**
+   send it from your PC with Option B, not both. Then open **Bluetooth Audio** from
+   the home screen. Triangle scans, the d-pad selects, X connects (or starts the service if it
+   is offline), Square toggles TV sound, Circle closes the app. The audio service keeps running.
+4. If the service still doesn't start, check `/data/bta_audio/app.log` on the console, or send the
+   payload yourself with Option B below.
 
 ### Option B: payload only (no app)
 
@@ -84,7 +88,7 @@ python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 
 | Path on the PS4 | What it is |
 |---|---|
-| `/data/pkg/Bluetooth-Audio-2.5.pkg` | PKG you copy there before installing (Option A) |
+| `/data/pkg/Bluetooth-Audio-2.6.pkg` | PKG you copy there before installing (Option A) |
 | `/data/payloads/BTA-Audio.bin` | Boot payload written by `install_bta.py` (Option B) |
 | `/data/GoldHEN/payloads.ini` | GoldHEN AutoRun list. The installer adds `/user/data/payloads/BTA-Audio.bin = 1` under `[AutoRun]` and keeps your other entries |
 | `/data/bta_audio/` | Runtime state: saved headphones (`device.bin`), volume, `status.json`, logs |
@@ -111,7 +115,7 @@ matplotlib (its bundled DejaVu fonts are used for the UI text) and a .NET runtim
 ```powershell
 mkdir dist
 powershell -ExecutionPolicy Bypass -File build_app.ps1      # build/BTA-Audio.bin (run first)
-powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.5.pkg
+powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.6.pkg
 powershell -ExecutionPolicy Bypass -File build_variant.ps1 -Worker variants/src/worker_2.5_nokeepalive.c -Out out/test.bin
 ```
 

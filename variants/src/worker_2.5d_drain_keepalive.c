@@ -310,7 +310,7 @@ static void network_tick(struct app*a,u64 now){
 void*bta_worker(void*arg){
  struct app a;memset(&a,0,sizeof(a));a.listener=(long)arg;a.bt=a.hdmi=a.shmfd=-1;a.muted=-1;a.wanted=0;for(int i=0;i<4;i++)a.clients[i].fd=-1;
  if(resolve("sceKernelUsleep",&a.sleep)||resolve("sceKernelGetProcessTime",&a.clock)||resolve("shm_open",&a.shm)||resolve("mmap",&a.map)||resolve("munmap",&a.unmap)||!a.sleep||!a.clock||!a.shm||!a.map||!a.unmap){closefd(a.listener);return 0;}
- sc3(136,(long)"/data/bta_audio",0755,0);sc3(10,(long)BTA_STOP,0,0);load_target(&a);load_volume(&a);a.tv=exists(TV_ON);a.hdmi=sc3(5,(long)"/dev/hdmi",2,0);
+ sc3(136,(long)"/data/bta_audio",0777,0);sc3(15,(long)"/data/bta_audio",0777,0);sc3(10,(long)BTA_STOP,0,0);load_target(&a);load_volume(&a);a.tv=exists(TV_ON);a.hdmi=sc3(5,(long)"/dev/hdmi",2,0);
  message(&a,"Ready. Select your headphones and press Connect.");notify("Bluetooth Audio is ready and idle. Open the home-screen app, then press Connect. Web controls: http://127.0.0.1:8097/ (or your PS4 IP on port 8097).");
  while(!a.quit){u64 now=a.clock();
   if(now>=a.net_at){network_tick(&a,now);a.net_at=now+4000;}
