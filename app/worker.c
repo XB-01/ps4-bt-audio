@@ -19,7 +19,7 @@ struct app{
  long patch_rc,packet_rc,connect_rc,last_rc,hdmi_rc,btstate;
  u64 next_try,deadline,scan_at,heartbeat,poll_at,net_at,packets,errors,resyncs;
  unsigned level;int volume;char message[128];
- u64 stream_at,test_until,test_next;u32 test_phase;
+ u64 stream_at,test_until,test_next,silent_since;u32 test_phase,reprimes;
  /* Truthful link state (see link_state). dropped: the link was lost while
   * streaming. failed: the last attempt failed. announced: a "disconnected"
   * notice was shown. session: this connection has already been announced. */
@@ -58,6 +58,25 @@ static void retry_named(struct app*a,const char*pre,const char*suf,u64 delay_us)
 /* The PS4 audio stream was rebuilt (e.g. a game started). The headphone link is
  * fine, so this is a quiet reconnect of the audio path, not a failure or a drop. */
 static void restart_audio(struct app*a,const char*s){stop_audio(a);message(a,s);a->next_try=a->clock()+2000000;}
+/* The console's capture mix can go silent while the link is healthy (for example after a
+ * game change, or when the TV mute outlives the mix). Redo the useful half of a reconnect
+ * without touching Bluetooth: re-open the capture ring and hold the TV unmuted for PRIME_US
+ * so the mix restarts. The source is silent at this point, so nothing is audible. */
+static void reprime(struct app*a,u64 now){
+ long fd=a->shm("/shm_acap.full",0,0);
+ if(fd>=0){
+  void*p=a->map(0,0x10000,1,1,fd,0);
+  if(p&&p!=(void*)-1){
+   u32 w=(u32)(*(volatile u64*)((u8*)p+8)>>32);
+   if(*(volatile u32*)p==0x10000&&w>=16&&w<0x10000&&!(w&7)){
+    if(a->ring)a->unmap(a->ring,0x10000);
+    closefd(a->shmfd);a->ring=p;a->shmfd=fd;a->readpos=w;fd=-1;
+   }else a->unmap(p,0x10000);
+  }
+  if(fd>=0)closefd(fd);
+ }
+ a->stream_at=now;mute(a,0);
+}
 /* The headphones went away mid-stream. Detected only by consecutive audio-send
  * failures (never by polling the driver while streaming: that starved the
  * controller). stop_audio restores TV sound. */
@@ -168,6 +187,12 @@ static void audio_tick(struct app*a,u64 now){
   u32 cursor=a->readpos;
   for(unsigned i=0;i<384;i++){float f=*(volatile float*)(a->ring+cursor);cursor+=4;if(cursor==0x10000)cursor=16;if(f!=f)f=0;if(f>1)f=1;if(f<-1)f=-1;int v=(int)(f*(32767.0f*(float)a->volume/100.0f));pcm[i]=(short)v;unsigned m=v<0?-v:v;if(m>a->level)a->level=m;if(m>peak)peak=m;}
   a->readpos=cursor;
+  if(peak){a->silent_since=0;a->reprimes=0;}
+  else{
+   if(!a->silent_since)a->silent_since=now;
+   u64 quiet=now-a->silent_since;
+   if((a->reprimes==0&&quiet>=3000000)||(a->reprimes==1&&quiet>=10000000)||(a->reprimes==2&&quiet>=30000000)){a->reprimes++;reprime(a,now);}
+  }
  }
  struct audio_req req={a->target.address,pcm,sizeof(pcm),3,0};a->last_rc=sc3(54,a->bt,0x80206216,(long)&req);
  if(a->last_rc<0){if(++a->errors>20)link_lost(a);}
@@ -197,7 +222,7 @@ static int retry_in_ms(struct app*a,u64 now){return(a->wanted&&!a->streaming&&!a
 static int quiet_for_ms(struct app*a,u64 now){if(!a->streaming||now<a->ok_at)return 0;u64 ms=(now-a->ok_at)/1000;return ms>2000000000UL?2000000000:(int)ms;}
 static unsigned status(struct app*a,char*out,unsigned cap){
  u64 now=a->clock();
- struct writer w={out,0,cap};append(&w,"{\"version\":\"2.5\",\"message\":");quoted(&w,a->message);
+ struct writer w={out,0,cap};append(&w,"{\"version\":\"2.6\",\"message\":");quoted(&w,a->message);
  field(&w,"volume",a->volume);field(&w,"wanted",a->wanted);field(&w,"streaming",a->streaming);field(&w,"tv_enabled",a->tv);field(&w,"hdmi_muted",a->muted==1);field(&w,"scanning",a->scanning);field(&w,"pin_pending",a->pin_pending);field(&w,"test",now<a->test_until);field(&w,"link",link_state(a));field(&w,"attempts",a->attempts);field(&w,"retry_ms",retry_in_ms(a,now));field(&w,"meter",a->meter);field(&w,"quiet_ms",quiet_for_ms(a,now));field(&w,"level",a->level);field(&w,"packets",a->packets);field(&w,"errors",a->errors);field(&w,"resyncs",a->resyncs);field(&w,"patch_rc",a->patch_rc);field(&w,"packet_rc",a->packet_rc);field(&w,"connect_rc",a->connect_rc);field(&w,"audio_rc",a->last_rc);field(&w,"hdmi_rc",a->hdmi_rc);field(&w,"bt_state",a->btstate);field(&w,"no_widen",exists(NO_WIDEN));field(&w,"uptime_us",a->clock());
  char mac[13];mac_text(a->target.address,mac);append(&w,",\"selected\":");quoted(&w,mac);append(&w,",\"name\":");quoted(&w,a->target.name);
  append(&w,",\"devices\":[");int first=1;

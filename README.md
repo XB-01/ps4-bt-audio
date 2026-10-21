@@ -18,10 +18,12 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 ## Known issues
 
-- **Audio can arrive in bursts or stutter.** This was not fully solved. The shipped build has
-  no keepalive packet and behaved best in testing, with a short delay at the start of a
-  session. A silent keepalive packet in other builds is the suspected cause of the stutter,
-  but that is supported, not proven.
+- **Audio can still break briefly on some headphones.** QCY AilyBuds Pro is smooth; Baseus Bass
+  BS1 NC is much better since 2.6 but can still glitch when a game is loading, because the audio
+  service is paused for a few tens of milliseconds. Some other models would not connect
+  reliably, even from the PS4's own Bluetooth settings. Results vary by headphone model.
+- **Silence after a game change (fixed in 2.6).** The console's capture mix could go silent
+  mid-session until you reconnected. 2.6 re-attaches to it by itself after a few seconds of silence.
 - **Controller drops.** An early build polled the Bluetooth driver while streaming and
   starved the wireless controller's link. The current worker does no driver polling while
   streaming, which fixed it on the test console. Test with your own controller.
@@ -35,7 +37,7 @@ volume, connect or stop the service. Use it on a trusted home network only.
 | Path | Contents |
 |---|---|
 | `dist/Bluetooth-Audio-2.6.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
-| `payload/BTA-Audio-2.5-nokeepalive.bin` | Prebuilt flat payload for GoldHEN (sha256 `7e17af1de4186825902ad7ad1544efabae4a3fa9d70afb867c82338891ee709b`) |
+| `payload/BTA-Audio-2.6.bin` | Prebuilt flat payload for GoldHEN (sha256 `60f134a75c18adcfe1835bfed08fca7af94e4814fc8e057767d358bc5303d3b6`) |
 | `app/` | Payload source: launcher, worker (A2DP bridge and web UI), device cache |
 | `native/` | Home-screen app source (OpenOrbis) and asset generator |
 | `probe/bt_accept_patch.c` | In-RAM Bluetooth acceptance patch |
@@ -74,13 +76,13 @@ to port 9090**: the loader treats any connection as a payload and stops listenin
 reboot and re-jailbreak.
 
 ```powershell
-python tools/deploy_variant.py payload/BTA-Audio-2.5-nokeepalive.bin --host <PS4_IP> --connect
+python tools/deploy_variant.py payload/BTA-Audio-2.6.bin --host <PS4_IP> --connect
 ```
 
 To start it automatically after each jailbreak, install it as a GoldHEN AutoRun payload:
 
 ```powershell
-python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.5-nokeepalive.bin
+python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.6.bin
 python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 ```
 

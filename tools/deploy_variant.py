@@ -1,6 +1,6 @@
 """Swap the running audio worker for any payload .bin, in RAM, with no reboot.
 
-  python tools/deploy_variant.py payload/BTA-Audio-2.5-nokeepalive.bin --host <PS4_IP> --connect
+  python tools/deploy_variant.py payload/BTA-Audio-2.6.bin --host <PS4_IP> --connect
 
 A swap cuts live audio for ~6-15 s, so this refuses while the worker reports
 streaming=1 unless you pass --yes. It never touches the boot payload on disk: a

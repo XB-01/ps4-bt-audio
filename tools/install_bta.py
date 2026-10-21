@@ -64,8 +64,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--host', required=True, help='PS4 LAN IP address')
     p.add_argument('--disable-autorun', action='store_true')
-    p.add_argument('--payload', default=str(ROOT / 'payload/BTA-Audio-2.5-nokeepalive.bin'),
-                   help='payload to install as the boot payload, default: the shipped payload/BTA-Audio-2.5-nokeepalive.bin')
+    p.add_argument('--payload', default=str(ROOT / 'payload/BTA-Audio-2.6.bin'),
+                   help='payload to install as the boot payload, default: the shipped payload/BTA-Audio-2.6.bin')
     args = p.parse_args()
     backup = ROOT / 'install_backups' / datetime.now().strftime('%Y%m%d-%H%M%S')
     backup.mkdir(parents=True, exist_ok=False)
