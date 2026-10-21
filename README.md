@@ -18,12 +18,11 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 ## Known issues
 
-- **Audio can still break briefly on some headphones.** QCY AilyBuds Pro is smooth; Baseus Bass
-  BS1 NC is much better since 2.6 but can still glitch when a game is loading, because the audio
-  service is paused for a few tens of milliseconds. Some other models would not connect
-  reliably, even from the PS4's own Bluetooth settings. Results vary by headphone model.
-- **Silence after a game change (fixed in 2.6).** The console's capture mix could go silent
-  mid-session until you reconnected. 2.6 re-attaches to it by itself after a few seconds of silence.
+- **Audio can break briefly on some headphones.** QCY AilyBuds Pro is smooth; Baseus Bass BS1 NC can
+  glitch when a game is loading (the audio service is paused for a few tens of milliseconds) and
+  can go silent after a game change until you disconnect and reconnect it. Some other models
+  would not connect reliably, even from the PS4's own Bluetooth settings. Results vary by
+  headphone model.
 - **Controller drops.** An early build polled the Bluetooth driver while streaming and
   starved the wireless controller's link. The current worker does no driver polling while
   streaming, which fixed it on the test console. Test with your own controller.
@@ -36,8 +35,8 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 | Path | Contents |
 |---|---|
-| `dist/Bluetooth-Audio-2.6.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
-| `payload/BTA-Audio-2.6.bin` | Prebuilt flat payload for GoldHEN (sha256 `60f134a75c18adcfe1835bfed08fca7af94e4814fc8e057767d358bc5303d3b6`) |
+| `dist/Bluetooth-Audio-2.7.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
+| `payload/BTA-Audio-2.7.bin` | Prebuilt flat payload for GoldHEN (sha256 `0f7d46d07110e607d17eeac19ec757158acb99537319b82c61e9d6c0a66b7091`) |
 | `app/` | Payload source: launcher, worker (A2DP bridge and web UI), device cache |
 | `native/` | Home-screen app source (OpenOrbis) and asset generator |
 | `probe/bt_accept_patch.c` | In-RAM Bluetooth acceptance patch |
@@ -51,12 +50,12 @@ enabled (port 2121) so you can copy files. Use either option below, or both.
 
 ### Option A: home-screen app (PKG)
 
-`dist/Bluetooth-Audio-2.6.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
+`dist/Bluetooth-Audio-2.7.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
 home screen. It bundles the audio payload: when you open the app and the service isn't
 running, it sends the payload to GoldHEN's BinLoader (port 9090) for you. For the service to
 also start after every jailbreak without opening the app, add the AutoRun entry from Option B.
 
-1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.6.pkg`** on the PS4 (create the
+1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.7.pkg`** on the PS4 (create the
    `pkg` folder if it doesn't exist).
 2. In GoldHEN's settings menu, open Debug Settings, set the package source to **HDD**, then
    run **Package Installer** and install it. If an older version is installed, delete it from
@@ -64,7 +63,7 @@ also start after every jailbreak without opening the app, add the AutoRun entry 
 3. Make sure GoldHEN's **BinLoader (port 9090)** is enabled. It accepts one payload per
    jailbreak (any connection uses it up), so either let the app start the service **or**
    send it from your PC with Option B, not both. Then open **Bluetooth Audio** from
-   the home screen. Triangle scans, the d-pad selects, X connects (or starts the service if it
+   the home screen. Triangle scans (or disconnects the headphones while connected), the d-pad selects, X connects (or starts the service if it
    is offline), Square toggles TV sound, Circle closes the app. The audio service keeps running.
 4. If the service still doesn't start, check `/data/bta_audio/app.log` on the console, or send the
    payload yourself with Option B below.
@@ -76,13 +75,13 @@ to port 9090**: the loader treats any connection as a payload and stops listenin
 reboot and re-jailbreak.
 
 ```powershell
-python tools/deploy_variant.py payload/BTA-Audio-2.6.bin --host <PS4_IP> --connect
+python tools/deploy_variant.py payload/BTA-Audio-2.7.bin --host <PS4_IP> --connect
 ```
 
 To start it automatically after each jailbreak, install it as a GoldHEN AutoRun payload:
 
 ```powershell
-python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.6.bin
+python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.7.bin
 python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 ```
 
@@ -90,7 +89,7 @@ python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 
 | Path on the PS4 | What it is |
 |---|---|
-| `/data/pkg/Bluetooth-Audio-2.6.pkg` | PKG you copy there before installing (Option A) |
+| `/data/pkg/Bluetooth-Audio-2.7.pkg` | PKG you copy there before installing (Option A) |
 | `/data/payloads/BTA-Audio.bin` | Boot payload written by `install_bta.py` (Option B) |
 | `/data/GoldHEN/payloads.ini` | GoldHEN AutoRun list. The installer adds `/user/data/payloads/BTA-Audio.bin = 1` under `[AutoRun]` and keeps your other entries |
 | `/data/bta_audio/` | Runtime state: saved headphones (`device.bin`), volume, `status.json`, logs |
@@ -117,7 +116,7 @@ matplotlib (its bundled DejaVu fonts are used for the UI text) and a .NET runtim
 ```powershell
 mkdir dist
 powershell -ExecutionPolicy Bypass -File build_app.ps1      # build/BTA-Audio.bin (run first)
-powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.6.pkg
+powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.7.pkg
 powershell -ExecutionPolicy Bypass -File build_variant.ps1 -Worker variants/src/worker_2.5_nokeepalive.c -Out out/test.bin
 ```
 

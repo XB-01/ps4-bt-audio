@@ -304,9 +304,10 @@ static void draw(int pinmode,const char*pin,int digit){
  if(!online)act="Retry";
  else if(focus>=0&&focus<n){const struct bt_device*fd=&state.devices[focus];if(fd->address==state.selected&&l!=BT_LINK_IDLE)act=l==BT_LINK_STREAMING?"Disconnect":"Stop trying";}
  uint32_t testc=l==BT_LINK_STREAMING?DIM:FAINT;
- char tvlabel[32];snprintf(tvlabel,sizeof(tvlabel),"TV sound: %s",state.tv?"On":"Muted");
+ char tvlabel[32];snprintf(tvlabel,sizeof(tvlabel),"TV: %s",state.tv?"On":"Muted");
+ const char*tri=!online||l==BT_LINK_IDLE?"Scan":l==BT_LINK_STREAMING?"Disconnect":"Stop trying";
  struct{int icon;uint32_t ic;const char*tag1,*tag2,*label;uint32_t lc;}items[6]={
-  {I_BCROSS,BTN_X,0,0,act,DIM},{I_BSQUARE,BTN_SQ,0,0,tvlabel,DIM},{I_BTRI,BTN_TRI,0,0,"Scan",DIM},
+  {I_BCROSS,BTN_X,0,0,act,DIM},{I_BSQUARE,BTN_SQ,0,0,tvlabel,DIM},{I_BTRI,BTN_TRI,0,0,tri,DIM},
   {-1,0,"OPTIONS",0,"Test sound",testc},{-1,0,"L1","R1","Volume",DIM},{I_BCIRCLE,BTN_CI,0,0,"Close",DIM}};
  int x=56;
  for(int k=0;k<6;k++){

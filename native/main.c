@@ -141,7 +141,7 @@ static void snapshot(void){
  sceKernelClose(fd);logline("snapshot: written");
 }
 int main(void){
- sceKernelMkdir("/data/bta_audio",0777);sceKernelChmod("/data/bta_audio",0777);logline("Bluetooth Audio 2.6 native app starting");
+ sceKernelMkdir("/data/bta_audio",0777);sceKernelChmod("/data/bta_audio",0777);logline("Bluetooth Audio 2.7 native app starting");
  int video=sceVideoOutOpen(0xff,0,0,0);if(video<0){logline("VideoOutOpen failed");return 1;}
  off_t memory;size_t size=8*1024*1024;void*base=0;
  if(sceKernelAllocateDirectMemory(0,sceKernelGetDirectMemorySize(),size,0x200000,3,&memory)<0||sceKernelMapDirectMemory(&base,size,0x33,0,memory,0x200000)<0){logline("Video memory failed");return 2;}
@@ -182,7 +182,7 @@ int main(void){
     if(pressed&ORBIS_PAD_BUTTON_UP)focus=(focus+state.count-1)%state.count;
    }
    if(pressed&ORBIS_PAD_BUTTON_CROSS){logline("action: connect/disconnect");activate();}
-   if(pressed&ORBIS_PAD_BUTTON_TRIANGLE){logline("action: scan");action("/api/scan");}
+   if(pressed&ORBIS_PAD_BUTTON_TRIANGLE){if(online&&l!=BT_LINK_IDLE){logline("action: disconnect");action("/api/stop");}else{logline("action: scan");action("/api/scan");}}
    if(pressed&ORBIS_PAD_BUTTON_SQUARE){logline("action: tv");action(state.tv?"/api/tv-off":"/api/tv-on");}
    if(pressed&ORBIS_PAD_BUTTON_OPTIONS){logline("action: test sound");action("/api/test");if(!notice[0])testing_until=g_now+2200000;}
    if(pressed&(ORBIS_PAD_BUTTON_L1|ORBIS_PAD_BUTTON_LEFT))volume_change(-5);
