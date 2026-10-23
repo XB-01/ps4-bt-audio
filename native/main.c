@@ -141,7 +141,7 @@ static void snapshot(void){
  sceKernelClose(fd);logline("snapshot: written");
 }
 int main(void){
- sceKernelMkdir("/data/bta_audio",0777);sceKernelChmod("/data/bta_audio",0777);logline("Bluetooth Audio 2.7 native app starting");
+ sceKernelMkdir("/data/bta_audio",0777);sceKernelChmod("/data/bta_audio",0777);logline("Bluetooth Audio 2.7.5 native app starting");
  int video=sceVideoOutOpen(0xff,0,0,0);if(video<0){logline("VideoOutOpen failed");return 1;}
  off_t memory;size_t size=8*1024*1024;void*base=0;
  if(sceKernelAllocateDirectMemory(0,sceKernelGetDirectMemorySize(),size,0x200000,3,&memory)<0||sceKernelMapDirectMemory(&base,size,0x33,0,memory,0x200000)<0){logline("Video memory failed");return 2;}

@@ -11,6 +11,22 @@ not work. Output only: no microphone or chat input.
 > console you own. Other firmware versions are unsupported: the payload checks kernel
 > instruction fingerprints before patching and refuses to run if they don't match.
 
+## What's new in 2.7.5
+
+- **Joint stereo by default.** Audio is sent as standard joint-stereo SBC, the format
+  headphones agree to when they connect. The old format (dual channel) made the PS4
+  renegotiate the stream with the headphones, and some models stayed connected but silent.
+  You can turn joint stereo off per headphone on the web page if a model needs the old format.
+- **Automatic recovery.** If the PS4 refuses audio for 4 seconds, the service drops the
+  Bluetooth link and reconnects by itself (up to 3 times in a row).
+- **Disconnect really disconnects.** The Disconnect button (web page, or Triangle in the
+  app) drops the Bluetooth link itself, so the next connect starts fresh.
+- **Steadier sending.** Audio goes out from its own thread with the same scheduling the
+  PS4's audio service uses for its Bluetooth senders (real-time priority, cores 6–7).
+- **Test tone follows the volume slider.**
+- **Timing diagnostics.** `GET /api/timing` returns per-second packet timing (sent, refused,
+  late, longest gap) for the last two minutes.
+
 ## Security note
 
 The control page (port 8097) has no login. Anyone on your local network can scan, change
@@ -18,11 +34,10 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 ## Known issues
 
-- **Audio can break briefly on some headphones.** QCY AilyBuds Pro is smooth; Baseus Bass BS1 NC can
-  glitch when a game is loading (the audio service is paused for a few tens of milliseconds) and
-  can go silent after a game change until you disconnect and reconnect it. Some other models
-  would not connect reliably, even from the PS4's own Bluetooth settings. Results vary by
-  headphone model.
+- **Some headphones need a reconnect or two.** If a pair connects but plays nothing, press
+  Disconnect and connect again, or turn the headphones off and on. The automatic recovery
+  handles most of these cases by itself.
+- **Brief glitches during game loads** are possible on some headphone models.
 - **Controller drops.** An early build polled the Bluetooth driver while streaming and
   starved the wireless controller's link. The current worker does no driver polling while
   streaming, which fixed it on the test console. Test with your own controller.
@@ -35,8 +50,8 @@ volume, connect or stop the service. Use it on a trusted home network only.
 
 | Path | Contents |
 |---|---|
-| `dist/Bluetooth-Audio-2.7.pkg` | Prebuilt home-screen app (bundles the same no-keepalive payload as `payload/`) |
-| `payload/BTA-Audio-2.7.bin` | Prebuilt flat payload for GoldHEN (sha256 `0f7d46d07110e607d17eeac19ec757158acb99537319b82c61e9d6c0a66b7091`) |
+| `dist/Bluetooth-Audio-2.7.5.pkg` | Prebuilt home-screen app (bundles the same payload as `payload/`) |
+| `payload/BTA-Audio-2.7.5.bin` | Prebuilt flat payload for GoldHEN (sha256 `7db52b8462f28ec3070924ece0507e4d360ba97986c94427f4657124acb337b3`) |
 | `app/` | Payload source: launcher, worker (A2DP bridge and web UI), device cache |
 | `native/` | Home-screen app source (OpenOrbis) and asset generator |
 | `probe/bt_accept_patch.c` | In-RAM Bluetooth acceptance patch |
@@ -50,12 +65,12 @@ enabled (port 2121) so you can copy files. Use either option below, or both.
 
 ### Option A: home-screen app (PKG)
 
-`dist/Bluetooth-Audio-2.7.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
+`dist/Bluetooth-Audio-2.7.5.pkg` installs a **Bluetooth Audio** app (title ID `BTAD00001`) on the
 home screen. It bundles the audio payload: when you open the app and the service isn't
 running, it sends the payload to GoldHEN's BinLoader (port 9090) for you. For the service to
 also start after every jailbreak without opening the app, add the AutoRun entry from Option B.
 
-1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.7.pkg`** on the PS4 (create the
+1. Copy the PKG over FTP to **`/data/pkg/Bluetooth-Audio-2.7.5.pkg`** on the PS4 (create the
    `pkg` folder if it doesn't exist).
 2. In GoldHEN's settings menu, open Debug Settings, set the package source to **HDD**, then
    run **Package Installer** and install it. If an older version is installed, delete it from
@@ -75,13 +90,13 @@ to port 9090**: the loader treats any connection as a payload and stops listenin
 reboot and re-jailbreak.
 
 ```powershell
-python tools/deploy_variant.py payload/BTA-Audio-2.7.bin --host <PS4_IP> --connect
+python tools/deploy_variant.py payload/BTA-Audio-2.7.5.bin --host <PS4_IP> --connect
 ```
 
 To start it automatically after each jailbreak, install it as a GoldHEN AutoRun payload:
 
 ```powershell
-python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.7.bin
+python tools/install_bta.py --host <PS4_IP> --payload payload/BTA-Audio-2.7.5.bin
 python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 ```
 
@@ -89,10 +104,11 @@ python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 
 | Path on the PS4 | What it is |
 |---|---|
-| `/data/pkg/Bluetooth-Audio-2.7.pkg` | PKG you copy there before installing (Option A) |
+| `/data/pkg/Bluetooth-Audio-2.7.5.pkg` | PKG you copy there before installing (Option A) |
 | `/data/payloads/BTA-Audio.bin` | Boot payload written by `install_bta.py` (Option B) |
 | `/data/GoldHEN/payloads.ini` | GoldHEN AutoRun list. The installer adds `/user/data/payloads/BTA-Audio.bin = 1` under `[AutoRun]` and keeps your other entries |
 | `/data/bta_audio/` | Runtime state: saved headphones (`device.bin`), volume, `status.json`, logs |
+| `/data/bta_audio/dual-<address>` | Present only if you turned joint stereo off for that headphone |
 | `/data/bta_audio/stop` | Create this empty file over FTP to request a clean shutdown |
 | `/user/app/BTAD00001/` | Where the PKG installs the app (managed by the system) |
 
@@ -101,9 +117,12 @@ python tools/install_bta.py --host <PS4_IP> --disable-autorun   # undo
 ### Using it
 
 Put your headphones in pairing mode, then scan and pick them from the app or from
-`http://<PS4_IP>:8097/` in a browser on your network. **Stop audio** restores TV sound. The
-selected headphones are remembered across restarts, and AutoRun reconnects them after the
-jailbreak, so switch them on first.
+`http://<PS4_IP>:8097/` in a browser on your network. **Disconnect headphones** restores TV
+sound. The selected headphones are remembered across restarts, and AutoRun reconnects them
+after the jailbreak, so switch them on first.
+
+To make the PS4 discover headphones from scratch, remove them in **Settings → Devices →
+Bluetooth Devices** (Options, Forget Device), then put them in pairing mode and scan.
 
 ## Build from source
 
@@ -116,7 +135,7 @@ matplotlib (its bundled DejaVu fonts are used for the UI text) and a .NET runtim
 ```powershell
 mkdir dist
 powershell -ExecutionPolicy Bypass -File build_app.ps1      # build/BTA-Audio.bin (run first)
-powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.7.pkg
+powershell -ExecutionPolicy Bypass -File build_native.ps1   # dist/Bluetooth-Audio-2.7.5.pkg
 powershell -ExecutionPolicy Bypass -File build_variant.ps1 -Worker variants/src/worker_2.5_nokeepalive.c -Out out/test.bin
 ```
 

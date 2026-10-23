@@ -29,12 +29,12 @@ $tool = Join-Path $bin 'PkgTool.Core.exe'
 & $tool sfo_new $sfo
 if ($LASTEXITCODE) { throw 'SFO create failed' }
 $entries = @(
-    @('APP_TYPE','Integer','4','1'), @('APP_VER','Utf8','8','02.07'),
+    @('APP_TYPE','Integer','4','1'), @('APP_VER','Utf8','8','02.75'),
     @('ATTRIBUTE','Integer','4','0'), @('CATEGORY','Utf8','4','gd'),
     @('CONTENT_ID','Utf8','48','IV0000-BTAD00001_00-BTAUDIO000000001'),
     @('DOWNLOAD_DATA_SIZE','Integer','4','0'), @('SYSTEM_VER','Integer','4','0'),
     @('TITLE','Utf8','128','Bluetooth Audio'), @('TITLE_ID','Utf8','12','BTAD00001'),
-    @('VERSION','Utf8','8','02.07')
+    @('VERSION','Utf8','8','02.75')
 )
 foreach ($entry in $entries) {
     & $tool sfo_setentry $sfo $entry[0] --type $entry[1] --maxsize $entry[2] --value $entry[3]
@@ -47,7 +47,7 @@ try {
     & $tool pkg_build package.gp4 $out
     if ($LASTEXITCODE) { throw 'PKG build failed' }
 } finally { Pop-Location }
-Copy-Item -LiteralPath (Join-Path $out 'IV0000-BTAD00001_00-BTAUDIO000000001.pkg') -Destination (Join-Path $root 'dist/Bluetooth-Audio-2.7.pkg') -Force
-& $tool pkg_validate (Join-Path $root 'dist/Bluetooth-Audio-2.7.pkg')
+Copy-Item -LiteralPath (Join-Path $out 'IV0000-BTAD00001_00-BTAUDIO000000001.pkg') -Destination (Join-Path $root 'dist/Bluetooth-Audio-2.7.5.pkg') -Force
+& $tool pkg_validate (Join-Path $root 'dist/Bluetooth-Audio-2.7.5.pkg')
 if ($LASTEXITCODE) { throw 'PKG validation failed' }
-Write-Output 'Built and validated Bluetooth-Audio-2.7.pkg'
+Write-Output 'Built and validated Bluetooth-Audio-2.7.5.pkg'
