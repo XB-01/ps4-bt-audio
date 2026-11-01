@@ -13,6 +13,7 @@ static const short SINE32[32]={0,1561,3061,4445,5657,6652,7391,7846,8000,7846,73
 struct audio_req{u64 address;void*samples;u64 length;u32 mode,pad;};
 struct client{long fd;u64 deadline;u32 used,sent,total;char input[2048];char output[20000];};
 struct app{
+ int tone_active;
  int(*sleep)(unsigned);u64(*clock)(void);int(*shm)(const char*,int,int);
  void*(*map)(void*,u64,int,int,int,u64);int(*unmap)(void*,u64);
  long listener,bt,hdmi,shmfd;u8*ring;u32 readpos;int wanted,streaming,tv,muted,quit,phase;
@@ -195,11 +196,27 @@ static void audio_tick(struct app*a,u64 now){
   /* Self-paced test tone (works even with no game audio): one 192-frame packet
    * every ~4ms. Independent of the capture ring; follows the volume slider
    * (50% = the old fixed level, 100% = about half of full scale). */
+  a->tone_active=1;
+  if(a->ring){
+   u32 wp=*(volatile u32*)(a->ring+12);
+   if(wp>=16&&wp<0x10000&&!(wp&7))a->readpos=wp;
+  }
+  if(!a->test_next)a->test_next=now;
   if(now<a->test_next)return;
-  a->test_next=now+4000;
+  a->test_next+=4000;
+  if(now>a->test_next&&now-a->test_next>8000)
+   a->test_next=now+4000;
   for(unsigned i=0;i<192;i++){short s=(short)(SINE32[(a->test_phase>>8)&31]*2*a->volume/100);a->test_phase+=75;pcm[2*i]=s;pcm[2*i+1]=s;unsigned m=s<0?-s:s;if(m>a->level)a->level=m;if(m>peak)peak=m;}
  }else{
   u32 writepos=(u32)(*(volatile u64*)(a->ring+8)>>32);
+  if(a->tone_active){
+   a->tone_active=0;a->test_next=0;
+   if(writepos>=16&&writepos<0x10000&&!(writepos&7)){
+    a->readpos=writepos;a->resyncs++;
+    message(a,"Test tone finished. Streaming game audio.");
+    return;
+   }
+  }
   if(writepos<16||writepos>=0x10000||(writepos&7)){restart_audio(a,"Audio stream changed. Reconnecting...");return;}
   unsigned available=writepos>=a->readpos?writepos-a->readpos:0xfff0-a->readpos+writepos;
   if(available>0xc000){a->readpos=writepos;a->resyncs++;return;}if(available<1536)return;backlog=available;
@@ -314,7 +331,7 @@ static void dispatch(struct app*a,struct client*c){
  }
  else if(starts(c->input,"POST /api/test HTTP/1.")){
   if(!a->streaming||a->bt<0||a->btstate<5||a->btstate>6){response(c,"409 Conflict","text/plain","Connect headphones first.",25);return;}
-  a->test_phase=0;a->test_next=0;a->test_until=a->clock()+2000000;message(a,"Playing test tone.");
+  a->tone_active=0;a->test_phase=0;a->test_next=0;a->test_until=a->clock()+2000000;message(a,"Playing test tone.");
  }
  else if(starts(c->input,"POST /api/connect HTTP/1.")){a->wanted=1;a->relinks=0;sc3(10,(long)TV_ON,0,0);a->tv=0;if(!a->streaming){end_scan(a);a->phase=0;a->next_try=0;a->dropped=a->failed=a->announced=a->session=0;a->attempts=0;say(a,"Connecting to ","...");}}
  else if(starts(c->input,"POST /api/stop HTTP/1.")){a->wanted=0;end_scan(a);stop_audio(a);drop_link(a);a->relinks=0;a->refused_since=0;closefd(a->bt);a->bt=-1;a->dropped=a->failed=a->announced=a->session=0;a->attempts=0;message(a,"Earbud audio stopped. TV sound restored.");}
@@ -370,7 +387,7 @@ static void*sender(void*arg){
  struct app*a=arg;
  void*(*self)(void)=0;int(*getprio)(void*,int*)=0;
  if(!resolve("scePthreadSelf",&self)&&!resolve("scePthreadGetprio",&getprio)&&self&&getprio){int p=0;if(!getprio(self(),&p))a->sender_prio=p;}
- while(a->sender_run){u64 now=a->clock();lock_state(a);audio_tick(a,now);unlock_state(a);a->sleep(500);}
+ while(a->sender_run){lock_state(a);u64 now=a->clock();audio_tick(a,now);unlock_state(a);a->sleep(500);}
  a->sender_alive=0;return 0;
 }
 static void start_sender(struct app*a){
@@ -395,11 +412,14 @@ static void start_sender(struct app*a){
 /* The sender uses this stack frame's state: wait for it to leave before returning. */
 static void stop_sender(struct app*a){a->sender_run=0;while(a->sender_alive)a->sleep(1000);}
 void*bta_worker(void*arg){
+ notify("BTA1252 D3: entrada al worker.");
  struct app a;memset(&a,0,sizeof(a));a.listener=(long)arg;a.bt=a.hdmi=a.shmfd=-1;a.muted=-1;a.wanted=0;for(int i=0;i<4;i++)a.clients[i].fd=-1;
- if(resolve("sceKernelUsleep",&a.sleep)||resolve("sceKernelGetProcessTime",&a.clock)||resolve("shm_open",&a.shm)||resolve("mmap",&a.map)||resolve("munmap",&a.unmap)||!a.sleep||!a.clock||!a.shm||!a.map||!a.unmap){closefd(a.listener);return 0;}
+ if(resolve("sceKernelUsleep",&a.sleep)||resolve("sceKernelGetProcessTime",&a.clock)||resolve("shm_open",&a.shm)||resolve("mmap",&a.map)||resolve("munmap",&a.unmap)||!a.sleep||!a.clock||!a.shm||!a.map||!a.unmap){notify("BTA1252 ERROR: resolver funciones del worker.");closefd(a.listener);return 0;}
  sc3(136,(long)"/data/bta_audio",0777,0);sc3(15,(long)"/data/bta_audio",0777,0);sc3(10,(long)BTA_STOP,0,0);load_target(&a);load_joint(&a);load_volume(&a);a.tv=exists(TV_ON);a.hdmi=sc3(5,(long)"/dev/hdmi",2,0);
  message(&a,"Ready. Select your headphones and press Connect.");notify("Bluetooth Audio is ready and idle. Open the home-screen app, then press Connect. Web controls: http://127.0.0.1:8097/ (or your PS4 IP on port 8097).");
+ notify("BTA1252 D4: antes de mutex y sender.");
  init_lock(&a);start_sender(&a);
+ notify("BTA1252 D5: entrando al bucle de servicio.");
  while(!a.quit){u64 now=a.clock();
   if(now>=a.net_at){network_tick(&a,now);a.net_at=now+4000;}/* locks around each request */
   if(a.quit)break;
@@ -407,6 +427,7 @@ void*bta_worker(void*arg){
   /* Take the lock only when there is shared-state work (~35 times a second). */
   if(now<a.poll_at&&a.sender_alive&&now<a.meter_at&&!beat){a.sleep(500);continue;}
   lock_state(&a);
+  now=a.clock();
   if(now>=a.poll_at){bluetooth_tick(&a,now);a.poll_at=now+50000;}
   if(!a.sender_alive)audio_tick(&a,now);/* fallback: no sender thread */
   /* Output meter: peak of the last ~80 ms, with a quick decay so a client that
