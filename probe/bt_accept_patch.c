@@ -1,6 +1,7 @@
-/* Temporary 13.52 Bluetooth service-acceptance patch, with byte fingerprint,
+/* Temporary firmware-specific Bluetooth service-acceptance patch, with byte fingerprint,
  * atomic replacement, readback, and a separately buildable rollback.
  * Changes no flash or firmware files. Requires the exact live code inspected. */
+#include "../app/firmware.h"
 typedef unsigned long u64;
 __attribute__((noinline)) static long sc3(long n,long a,long b,long c) {
     long out;
@@ -14,8 +15,8 @@ static int patch(void *td,struct args *a) {
     (void)td;unsigned lo,hi;
     __asm__ volatile("rdmsr":"=a"(lo),"=d"(hi):"c"(0xc0000082));
     u64 base=(((u64)hi<<32)|lo)-0x1c0;
-    if ((base>>48)!=0xffff || (base&0x3fff)) return 22;
-    volatile u64 *site=(void*)(base+0x5a1334);
+    if (!bta_kernel_matches(base)) return 22;
+    volatile u64 *site=(void*)(base+BTA_ACCEPT_SITE);
     /* cmp dword [rax+0x20],0x40; jne reject; first 2 bytes of next insn.
      * -> test byte [rax+0x20],0x48; je reject. 0x40 = HID, 0x08 = audio.
      * All other allowlist paths and connection-limit checks stay in place. */
@@ -35,13 +36,13 @@ static int patch(void *td,struct args *a) {
         out.after=*site;
         if(expected!=original || out.after!=replacement) rc=5;
     } else if(out.before!=replacement) rc=22;
-    int(*copyout)(const void*,void*,u64)=(void*)(base+0x2bd6a0);
+    int(*copyout)(const void*,void*,u64)=(void*)(base+BTA_COPYOUT);
     int copied=copyout(&out,a->out,sizeof(out));
     return copied?copied:rc;
 }
 __attribute__((section(".text.start"))) int _start(void) {
     struct sw v={.size=sizeof(v)};int(*getver)(void*)=0;
-    if(sc3(591,0x2001,(long)"sceKernelGetSystemSwVersion",(long)&getver)||!getver||getver(&v)||v.version!=0x13520001)return 1;
+    if(sc3(591,0x2001,(long)"sceKernelGetSystemSwVersion",(long)&getver)||!getver||getver(&v)||!BTA_SW_MATCHES(v.version))return 1;
     struct {long status;struct result result;} r={0};
     r.status=sc3(11,(long)patch,(long)&r.result,0);
     long fd=sc3(5,(long)"/data/bt_accept_patch_result.bin",0x601,0644);

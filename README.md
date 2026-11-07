@@ -1,5 +1,10 @@
 # PS4 Bluetooth Audio (experimental)
 
+This checkout includes an experimental **11.50 port** with addresses recovered
+from an 11.50 console. See [11.50 build, deployment and validation notes](docs/firmware-11.50.md).
+Build it with `python tools/build_payload.py --firmware 11.50 --out build/BTA-Audio-11.50.bin`.
+The original prebuilt PKG and `BTA-Audio-2.7.5.bin` below still target 13.52.
+
 Homebrew for a **jailbroken PS4 on firmware 13.520.001**. It sends game audio from the
 console's own Bluetooth radio straight to Bluetooth Classic headphones, with no PC in the
 audio path. TV sound can be muted or kept alongside.
