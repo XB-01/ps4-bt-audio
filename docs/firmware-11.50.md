@@ -79,8 +79,11 @@ retains its exact version check.
   succeed.
 - Connections reached driver state 6, including a continuous session with more
   than 14,000 packets, zero reported errors and no automatic reconnects.
-- The test-tone send returned 768 bytes. The listener tentatively reported
-  hearing the repeated tone; normal game audio still needs confirmation.
+- The test-tone send returned 768 bytes. The listener subsequently confirmed
+  audible playback in games and in the PS4 Spotify app through Nothing Ear (a).
+- The listener reports occasional small audio glitches. Their frequency and
+  cause have not been measured; successful send counters do not establish
+  glitch-free playback.
 - The exact payload was uploaded to `/data/payloads/BTA-Audio.bin`, read back
   and verified, and enabled in GoldHEN AutoRun. Replaced-file backups and the
   install manifest are under the ignored `install_backups/` directory.
