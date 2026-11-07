@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "firmware.h"
 extern const char __image_start[],__image_end[];
 void*memset(void*p,int value,u64 n){u8*d=p;while(n--)*d++=(u8)value;return p;}
 void*memcpy(void*d,const void*s,u64 n){u8*a=d;const u8*b=s;while(n--)*a++=*b++;return d;}
@@ -10,7 +11,7 @@ void notify(const char*message){
 /* Run from our own mapping: GoldHEN is free to reuse its injection buffer. */
 __attribute__((section(".text.launcher"))) int _start(void){
  int(*version)(void*)=0;struct{u64 size;char text[28];u32 version;}v={.size=40};
- if(resolve("sceKernelGetSystemSwVersion",&version)||!version||version(&v)||v.version!=0x13520001){notify("Bluetooth Audio requires PS4 firmware 13.520.001.");return 1;}
+ if(resolve("sceKernelGetSystemSwVersion",&version)||!version||version(&v)||!BTA_SW_MATCHES(v.version)){notify("Bluetooth Audio requires PS4 firmware " BTA_FW_LABEL ".");return 1;}
  long listener=sc3(97,2,1,0);if(listener<0)return 2;
  int one=1;sc5(105,listener,0xffff,4,(long)&one,4);
  struct sockaddr4 sa={.len=16,.family=2,.port=(BTA_PORT>>8)|((BTA_PORT&255)<<8)};
